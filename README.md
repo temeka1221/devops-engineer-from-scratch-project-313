@@ -10,6 +10,9 @@
 ## Стек
 
 - Python
+- FastAPI
+- uvicorn
+- uv
 
 ## Установка
 
@@ -19,12 +22,21 @@
 git clone https://github.com/temeka1221/devops-engineer-from-scratch-project-313.git
 cd devops-engineer-from-scratch-project-313
 ```
+```bash
+make install
+```
 
 ## Использование
-
+Запуск через команду ниже. Приложение слушает на порту 8080
 <!-- Добавьте примеры запуска и запись asciinema — именно это смотрит работодатель -->
-
----
+```bash
+make run
+```
+Как проверить
+```bash
+curl -s localhost:8080/ping; echo
+```
+Ожидаемый ответ: pong
 
 <details>
 <summary>Автоматические тесты Хекслета</summary>
