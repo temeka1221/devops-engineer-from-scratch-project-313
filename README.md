@@ -1,6 +1,6 @@
 # Деплой приложения на PaaS (Devops)
 
-[![hexlet-check](https://github.com/temeka1221/devops-engineer-from-scratch-project-313/actions/workflows/hexlet-check.yml/badge.svg)](https://github.com/temeka1221/devops-engineer-from-scratch-project-313/actions)
+[![hexlet-check](https://github.com/temeka1221/devops-engineer-from-scratch-project-313/actions/workflows/hexlet-check.yml/badge.svg)](https://github.com/temeka1221/devops-engineer-from-scratch-project-313/actions) [![CI-check](https://github.com/temeka1221/devops-engineer-from-scratch-project-313/actions/workflows/ci.yml/badge.svg)](https://github.com/temeka1221/devops-engineer-from-scratch-project-313/actions)
 
 Создайте и задеплойте веб-приложение, подключите базу данных и настройте мониторинг ошибок
 
