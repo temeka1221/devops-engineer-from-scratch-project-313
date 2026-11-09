@@ -8,7 +8,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import PlainTextResponse
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Field, Session, SQLModel, create_engine
+from sqlmodel import Field, Session, SQLModel, create_engine, select
 
 load_dotenv()
 sentry_sdk.init(dsn=os.environ.get("SENTRY_DSN"))
@@ -102,3 +102,36 @@ def get_link(link_id: int, session: Session = Depends(get_session)) -> LinkPubli
     if link is None:
         raise HTTPException(status_code=404, detail="Link not found")
     return to_public(link)
+
+
+@app.get("/api/links")
+def list_links(session: Session = Depends(get_session)) -> list[LinkPublic]:
+    links = session.exec(select(Link)).all()
+    return [to_public(link) for link in links]
+
+
+@app.put("/api/links/{link_id}")
+def update_link(
+    link_id: int, data: LinkCreate, session: Session = Depends(get_session)
+) -> LinkPublic:
+    link = session.get(Link, link_id)
+    if link is None:
+        raise HTTPException(status_code=404, detail="Link not found")
+    link.sqlmodel_update(data.model_dump())
+    session.add(link)
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="Short name already exists")
+    session.refresh(link)
+    return to_public(link)
+
+
+@app.delete("/api/links/{link_id}", status_code=204)
+def delete_link(link_id: int, session: Session = Depends(get_session)) -> None:
+    link = session.get(Link, link_id)
+    if link is None:
+        raise HTTPException(status_code=404, detail="Link not found")
+    session.delete(link)
+    session.commit()
