@@ -5,7 +5,7 @@ from datetime import datetime
 import sentry_sdk
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Field, Session, SQLModel, create_engine, select
@@ -135,3 +135,13 @@ def delete_link(link_id: int, session: Session = Depends(get_session)) -> None:
         raise HTTPException(status_code=404, detail="Link not found")
     session.delete(link)
     session.commit()
+
+
+@app.get("/r/{short_name}")
+def get_links_by_short_name(
+    short_name: str, session: Session = Depends(get_session)
+) -> RedirectResponse:
+    link = session.exec(select(Link).where(Link.short_name == short_name)).first()
+    if link is None:
+        raise HTTPException(status_code=404, detail="Link not found")
+    return RedirectResponse(link.original_url, status_code=302)
