@@ -74,4 +74,3 @@ def test_redirect(client):
 def test_redirect_missing(client):
     response = client.get("/r/nope")
     assert response.status_code == 404
-
