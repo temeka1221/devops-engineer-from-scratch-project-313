@@ -4,11 +4,28 @@ on:
   push:
     branches:
       - main
+  pull_request:
+
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      postgresql:
+        image: postgres:18
+        env:
+          POSTGRES_USER: TestUser
+          POSTGRES_PASSWORD: TestPwd
+          POSTGRES_DB: appdb_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U TestUser"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
     env:
       UV_LOCKED: 1
+      TEST_DATABASE_URL: postgres://TestUser:TestPwd@localhost:5432/appdb_test
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.2
