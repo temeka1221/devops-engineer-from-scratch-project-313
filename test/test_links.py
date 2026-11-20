@@ -74,3 +74,63 @@ def test_redirect(client):
 def test_redirect_missing(client):
     response = client.get("/r/nope")
     assert response.status_code == 404
+
+
+def create_links(client, count):
+    for i in range(count):
+        client.post("/api/links", json=LINK | {"short_name": f"s{i}"})
+
+
+def test_list_range_first_page(client):
+    create_links(client, 12)
+    response = client.get("/api/links", params={"range": "[0,9]"})
+    assert response.status_code == 200
+    assert response.headers["content-range"] == "links 0-9/12"
+    body = response.json()
+    assert len(body) == 10
+    assert body[0]["short_name"] == "s0"
+    assert body[-1]["short_name"] == "s9"
+
+
+def test_list_without_range(client):
+    create_links(client, 12)
+    response = client.get("/api/links")
+    assert response.status_code == 200
+    assert response.headers["content-range"] == "links 0-11/12"
+    body = response.json()
+    assert len(body) == 12
+
+
+def test_list_range_middle(client):
+    create_links(client, 12)
+    response = client.get("/api/links", params={"range": "[5,10]"})
+    assert response.headers["content-range"] == "links 5-10/12"
+    body = response.json()
+    assert len(body) == 6
+    assert body[0]["short_name"] == "s5"
+    assert body[-1]["short_name"] == "s10"
+
+
+def test_list_range_last_page(client):
+    create_links(client, 12)
+    response = client.get("/api/links", params={"range": "[10,19]"})
+    body = response.json()
+    assert response.headers["content-range"] == "links 10-11/12"
+    assert len(body) == 2
+
+
+def test_list_range_out_of_bounds(client):
+    create_links(client, 12)
+    response = client.get("/api/links", params={"range": "[20,29]"})
+    assert response.status_code == 200
+    assert response.headers["content-range"] == "links */12"
+    body = response.json()
+    assert body == []
+
+
+def test_list_range_invalid(client):
+    create_links(client, 12)
+    for value in ["abc", "[5,1]", "[-1,3]", "[1]", '["a", "b"]']:
+        response = client.get("/api/links", params={"range": value})
+        assert response.status_code == 400
+        assert "detail" in response.json()
