@@ -1,10 +1,12 @@
+import json
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime
+from typing import Annotated
 
 import sentry_sdk
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query, Response
 from fastapi.responses import PlainTextResponse, RedirectResponse
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
@@ -62,6 +64,16 @@ def get_session():
         yield session
 
 
+def parse_range(value: str) -> tuple[int, int]:
+    try:
+        start, end = json.loads(value)
+    except ValueError, TypeError:
+        raise HTTPException(status_code=400, detail="Invalid range")
+    if not (isinstance(start, int) and isinstance(end, int)) or not 0 <= start <= end:
+        raise HTTPException(status_code=400, detail="Invalid range")
+    return start, end
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     SQLModel.metadata.create_all(engine)
@@ -104,12 +116,6 @@ def get_link(link_id: int, session: Session = Depends(get_session)) -> LinkPubli
     return to_public(link)
 
 
-@app.get("/api/links")
-def list_links(session: Session = Depends(get_session)) -> list[LinkPublic]:
-    links = session.exec(select(Link)).all()
-    return [to_public(link) for link in links]
-
-
 @app.put("/api/links/{link_id}")
 def update_link(
     link_id: int, data: LinkCreate, session: Session = Depends(get_session)
@@ -145,3 +151,24 @@ def get_links_by_short_name(
     if link is None:
         raise HTTPException(status_code=404, detail="Link not found")
     return RedirectResponse(link.original_url, status_code=302)
+
+
+@app.get("/api/links")
+def list_links(
+    response: Response,
+    range_: Annotated[str | None, Query(alias="range")] = None,
+    session: Session = Depends(get_session),
+) -> list[LinkPublic]:
+    total = session.exec(select(func.count()).select_from(Link)).one()
+    query = select(Link).order_by(Link.id)
+    start = 0
+    if range_ is not None:
+        start, end = parse_range(range_)
+        query = query.offset(start).limit(end - start + 1)
+    links = session.exec(query).all()
+    if links:
+        content_range = f"links {start}-{start + len(links) - 1}/{total}"
+    else:
+        content_range = f"links */{total}"
+    response.headers["Content-Range"] = content_range
+    return [to_public(link) for link in links]
