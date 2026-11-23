@@ -1,4 +1,4 @@
-.PHONY: install run test lint format
+.PHONY: install run test lint format frontend dev
 install:
 	@uv sync
 
@@ -15,3 +15,9 @@ lint:
 format:
 	@uv run ruff format .
 	@uv run ruff check --fix .
+
+frontend:
+	@npx start-hexlet-devops-deploy-crud-frontend --port
+
+dev:
+	@npx concurrently -k -n run,frontend -c blue,green "$(MAKE) run" "$(MAKE) frontend"
