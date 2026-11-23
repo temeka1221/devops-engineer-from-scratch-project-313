@@ -18,6 +18,7 @@
 - PostgreSQL 18, SQLModel
 - uv: зависимости и окружение
 - pytest, Ruff: тесты и линтер
+- Интерфейс: готовый пакет на react-admin, Node.js и Vite
 - Docker, Docker Compose: сборка образа и локальная база
 - Render: хостинг приложения и базы
 - GitHub Actions: CI
@@ -28,6 +29,7 @@
 - [uv](https://docs.astral.sh/uv/getting-started/installation/)
 - make
 - Docker с плагином Compose: локальная база и сборка образа
+- Node.js 22.12 или новее, для интерфейса.`
 
 ## Установка
 
@@ -36,7 +38,10 @@ git clone https://github.com/temeka1221/devops-engineer-from-scratch-project-313
 cd devops-engineer-from-scratch-project-313
 cp .env.example .env
 make install
+npm ci
 ```
+
+`npm ci` ставит пакеты интерфейса строго по `package-lock.json`, как `uv sync` по `uv.lock`.
 
 Поднять PostgreSQL и создать базу для тестов:
 
@@ -61,7 +66,7 @@ docker compose exec db createdb -U SecretUser appdb_test
 
 | Метод | Путь | Описание | Успешный ответ |
 |---|---|---|---|
-| GET | `/api/links` | список ссылок | 200 |
+| GET | `/api/links` | список ссылок, с пагинацией | 200 |
 | POST | `/api/links` | создать ссылку | 201 |
 | GET | `/api/links/{id}` | получить ссылку | 200 |
 | PUT | `/api/links/{id}` | обновить ссылку | 200 |
@@ -82,6 +87,20 @@ curl -X POST localhost:8080/api/links -H 'Content-Type: application/json' \
 
 Таблицы создаются автоматически при старте приложения.
 
+### Пагинация
+
+`GET /api/links?range=[start,end]` возвращает записи с позиции `start` по `end` включительно: `[0,9]` это первые 10 записей. В ответе заголовок `Content-Range: links start-end/total`, где `total` это общее количество ссылок. Если в диапазон не попала ни одна запись, заголовок `links */total`. Без `range` возвращаются все записи. Некорректный `range` дает 400.
+
+```bash
+curl -g -i "localhost:8080/api/links?range=[0,9]"
+```
+
+Флаг `-g` нужен, чтобы curl не принимал квадратные скобки за свой синтаксис перебора.
+
+### CORS
+
+Для прямых запросов браузера со страницы `http://localhost:5173` на `http://localhost:8080` разрешены методы GET, POST, PUT, DELETE и заголовок `Content-Type`, а интерфейсу открыт для чтения заголовок `Content-Range`.
+
 ## Использование
 
 ### Локально
@@ -95,6 +114,13 @@ make run
 curl -s localhost:8080/ping; echo
 ```
 Ожидаемый ответ: `pong`
+
+### С интерфейсом
+
+```bash
+make dev
+```
+Запускает вместе бэкенд на порту 8080 и интерфейс на http://localhost:5173. Интерфейс обращается к API по относительному пути `/api`, а Vite пересылает эти запросы на 8080, поэтому для штатной работы CORS не нужен. Если один из процессов завершится, второй тоже остановится.
 
 ### В Docker
 

@@ -7,6 +7,7 @@ from typing import Annotated
 import sentry_sdk
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Query, Response
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse, RedirectResponse
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
@@ -81,6 +82,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Content-Type"],
+    expose_headers=["Content-Range"],
+)
 
 
 @app.get("/ping", response_class=PlainTextResponse)
