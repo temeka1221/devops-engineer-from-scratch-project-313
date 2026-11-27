@@ -8,9 +8,11 @@
 
 ## Демо
 
-- Приложение: https://devops-engineer-from-scratch-project-313-utep.onrender.com
+- Интерфейс: https://devops-engineer-from-scratch-project-313-utep.onrender.com
 - Проверка работы: https://devops-engineer-from-scratch-project-313-utep.onrender.com/ping
 - Документация API (Swagger UI): https://devops-engineer-from-scratch-project-313-utep.onrender.com/docs
+
+Приложение развернуто на бесплатном тарифе Render и засыпает без трафика, поэтому первый запрос после простоя может идти до минуты.
 
 ## Стек
 
@@ -18,8 +20,8 @@
 - PostgreSQL 18, SQLModel
 - uv: зависимости и окружение
 - pytest, Ruff: тесты и линтер
-- Интерфейс: готовый пакет на react-admin, Node.js и Vite
-- Docker, Docker Compose: сборка образа и локальная база
+- Интерфейс: готовый пакет на react-admin, Node.js
+- Docker с многоэтапной сборкой, Docker Compose для локальной базы
 - Render: хостинг приложения и базы
 - GitHub Actions: CI
 - Bugsink через Sentry SDK: мониторинг ошибок
@@ -28,8 +30,8 @@
 
 - [uv](https://docs.astral.sh/uv/getting-started/installation/)
 - make
+- Node.js 22.12 или новее. Удобнее всего через [nvm](https://github.com/nvm-sh/nvm): `nvm install --lts`
 - Docker с плагином Compose: локальная база и сборка образа
-- Node.js 22.12 или новее, для интерфейса.`
 
 ## Установка
 
@@ -37,11 +39,10 @@
 git clone https://github.com/temeka1221/devops-engineer-from-scratch-project-313.git
 cd devops-engineer-from-scratch-project-313
 cp .env.example .env
-make install
-npm ci
+make build
 ```
 
-`npm ci` ставит пакеты интерфейса строго по `package-lock.json`, как `uv sync` по `uv.lock`.
+`make build` ставит зависимости Python (`uv sync`) и npm (`npm ci`, строго по `package-lock.json`), затем заново создает каталог `public/` и копирует в него собранный интерфейс из пакета. Каталог `public/` генерируется и в git не хранится.
 
 Поднять PostgreSQL и создать базу для тестов:
 
@@ -61,6 +62,18 @@ docker compose exec db createdb -U SecretUser appdb_test
 - `TEST_DATABASE_URL`: нужна только для тестов. Отдельная база: тесты создают и удаляют в ней таблицы
 - `PORT`: порт приложения при запуске в Docker, по умолчанию `8080`. `make run` всегда слушает 8080
 - `SENTRY_DSN`: DSN проекта в Bugsink, по умолчанию не задана. Без нее мониторинг выключен, приложение работает как обычно
+
+## Как устроено
+
+Одно приложение отдает и интерфейс, и API по одному адресу:
+
+```
+браузер → приложение:8080
+            ├→ /api/*, /r/*, /ping, /docs → маршруты бэкенда
+            └→ остальные пути → файлы из public/
+```
+
+Раздача `public/` подключается после всех маршрутов API, иначе она перехватила бы их запросы. Если каталога `public/` нет (например, в CI), приложение запускается без интерфейса, а API работает как обычно.
 
 ## API
 
@@ -99,7 +112,7 @@ curl -g -i "localhost:8080/api/links?range=[0,9]"
 
 ### CORS
 
-Для прямых запросов браузера со страницы `http://localhost:5173` на `http://localhost:8080` разрешены методы GET, POST, PUT, DELETE и заголовок `Content-Type`, а интерфейсу открыт для чтения заголовок `Content-Range`.
+Для прямых запросов браузера со страницы `http://localhost:5173` на `http://localhost:8080` разрешены методы GET, POST, PUT, DELETE и заголовок `Content-Type`, а интерфейсу открыт для чтения заголовок `Content-Range`. В продакшене интерфейс и API работают на одном адресе, и CORS не задействуется.
 
 ## Использование
 
@@ -108,19 +121,19 @@ curl -g -i "localhost:8080/api/links?range=[0,9]"
 ```bash
 make run
 ```
-Запускает приложение на порту 8080. База должна быть поднята через `docker compose up -d`.
+Запускает приложение на порту 8080. База должна быть поднята через `docker compose up -d`, а интерфейс подготовлен через `make build`. Интерфейс открывается на http://localhost:8080.
 
 ```bash
 curl -s localhost:8080/ping; echo
 ```
 Ожидаемый ответ: `pong`
 
-### С интерфейсом
+### Режим разработки интерфейса
 
 ```bash
 make dev
 ```
-Запускает вместе бэкенд на порту 8080 и интерфейс на http://localhost:5173. Интерфейс обращается к API по относительному пути `/api`, а Vite пересылает эти запросы на 8080, поэтому для штатной работы CORS не нужен. Если один из процессов завершится, второй тоже остановится.
+Запускает вместе бэкенд на порту 8080 и сервер Vite на http://localhost:5173. Интерфейс на 5173 обращается к API по относительному пути `/api`, а Vite пересылает эти запросы на 8080. Если один из процессов завершится, второй тоже остановится.
 
 ### В Docker
 
@@ -132,7 +145,7 @@ docker run --rm -p 8080:8080 \
   -e BASE_URL=http://localhost:8080 \
   project-313
 ```
-Контейнер подключается к сети Compose и обращается к базе по имени сервиса `db`: `localhost` внутри контейнера указывает на сам контейнер, а не на хост.
+Образ собирается в два этапа: на образе Node ставятся npm-пакеты, а в финальный Python-образ копируется только готовый интерфейс. Node в итоговый образ не попадает. Контейнер подключается к сети Compose и обращается к базе по имени сервиса `db`: `localhost` внутри контейнера указывает на сам контейнер, а не на хост.
 
 ### Разработка
 
@@ -142,11 +155,11 @@ make lint     # проверка линтером и форматтером, б�
 make format   # автоисправление форматирования и импортов
 ```
 
-GitHub Actions запускает `make lint` и `make test` на каждый push в `main` и на каждый pull request. Для тестов в CI поднимается PostgreSQL как сервисный контейнер.
+GitHub Actions на каждый push в `main` и на каждый pull request запускает `make lint`, `make test` и сборку Docker-образа. Для тестов в CI поднимается PostgreSQL как сервисный контейнер.
 
 ## Деплой
 
-Приложение развернуто на Render: Web Service из `Dockerfile` и Render PostgreSQL в том же регионе. В сервисе заданы `DATABASE_URL` (Internal Database URL базы), `BASE_URL` и `SENTRY_DSN`. Деплой запускается автоматически после зеленого CI в `main`.
+Приложение развернуто на Render как Web Service из `Dockerfile`, рядом Render PostgreSQL в том же регионе. Интерфейс собирается внутри образа, отдельный прокси-сервер не нужен. В сервисе заданы `DATABASE_URL` (Internal Database URL базы), `BASE_URL` и `SENTRY_DSN`. Деплой запускается автоматически после зеленого CI в `main`. Если сборка образа падает, Render продолжает обслуживать предыдущую версию.
 
 ## Мониторинг ошибок
 

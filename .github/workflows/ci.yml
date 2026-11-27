@@ -32,4 +32,5 @@ jobs:
       - run: make install
       - run: make lint
       - run: make test
+      - run: docker build -t project-313 .
 
