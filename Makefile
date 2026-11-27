@@ -17,7 +17,7 @@ format:
 	@uv run ruff check --fix .
 
 frontend:
-	@npx start-hexlet-devops-deploy-crud-frontend --port
+	@npx start-hexlet-devops-deploy-crud-frontend
 
 dev:
 	@npx concurrently -k -n run,frontend -c blue,green "$(MAKE) run" "$(MAKE) frontend"
