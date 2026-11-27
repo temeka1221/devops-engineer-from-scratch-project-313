@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Field, Session, SQLModel, create_engine, select
@@ -181,3 +182,8 @@ def list_links(
         content_range = f"links */{total}"
     response.headers["Content-Range"] = content_range
     return [to_public(link) for link in links]
+
+
+PUBLIC_DIR = "public"
+if os.path.isdir(PUBLIC_DIR):
+    app.mount("/", StaticFiles(directory=PUBLIC_DIR, html=True), name="public")

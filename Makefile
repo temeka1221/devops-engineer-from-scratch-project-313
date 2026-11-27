@@ -1,4 +1,4 @@
-.PHONY: install run test lint format frontend dev
+.PHONY: install run test lint format frontend dev build
 install:
 	@uv sync
 
@@ -21,3 +21,10 @@ frontend:
 
 dev:
 	@npx concurrently -k -n run,frontend -c blue,green "$(MAKE) run" "$(MAKE) frontend"
+
+build:
+	@uv sync
+	@npm ci
+	@rm -rf public
+	@mkdir -p public
+	@cp -r ./node_modules/@hexlet/project-devops-deploy-crud-frontend/dist/. public/
